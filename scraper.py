@@ -33,7 +33,7 @@ class ESTScraper(object):
     GRANULARITY_HOUR = 'H'
     GRANULARITY_DAY = 'D'
 
-    def __init__(self, login, password, meter_id):
+    def __init__(self, login, password, meter_id, eic):
         """
         Class initialisation
 
@@ -44,6 +44,7 @@ class ESTScraper(object):
         self.login = login
         self.password = password
         self.meter_id = meter_id
+        self.eic = eic
 
         self.session = requests.Session()
 
@@ -99,6 +100,9 @@ class ESTScraper(object):
         }
 
         year = year or self._get_current_year()
+
+        if self.eic:
+            params['objectEic'] = self.eic
 
         if period == self.PERIOD_YEAR:
             params['year'] = year
@@ -157,7 +161,7 @@ class ESTScraper(object):
                                            granularity=self.GRANULARITY_HOUR)
         return self._format_response(response)
 
-    def get_month_data(self, year=None, month=None):
+    def get_month_data(self, year=None, month=None, granularity=None):
         """
         Get the data of the specified month
 
@@ -165,8 +169,12 @@ class ESTScraper(object):
         :param month:
         :return:
         """
+
+        if granularity is None:
+            granularity = self.GRANULARITY_DAY
+
         response = self._fetch_remote_data(period=self.PERIOD_MONTH, month=month, year=year,
-                                           granularity=self.GRANULARITY_DAY)
+                                           granularity=granularity)
         return self._format_response(response)
 
     def get_year_data(self, year=None):
@@ -218,6 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('--username', default=None, help='Website username')
     parser.add_argument('--password', default=None, help='Website password')
     parser.add_argument('--meter', default=None, help='Electricity meter ID')
+    parser.add_argument('--eic', default=None, help='Eic')
     parser.add_argument('--period', default='month', help='Report data time period')
     parser.add_argument('--year', default=None)
     parser.add_argument('--month', default=None)
@@ -232,13 +241,16 @@ if __name__ == '__main__':
     if not opts.meter:
         raise Exception('Electricity meter ID must be set')
 
-    scraper = ESTScraper(opts.username, opts.password, opts.meter)
+    scraper = ESTScraper(opts.username, opts.password, opts.meter, opts.eic)
 
     if opts.period == 'year':
         data = scraper.get_year_data(opts.year)
 
     if opts.period == 'month':
         data = scraper.get_month_data(opts.year, opts.month)
+
+    if opts.period == 'month-hourly':
+        data = scraper.get_month_data(opts.year, opts.month, scraper.GRANULARITY_HOUR)
 
     if opts.period == 'day':
         data = scraper.get_day_data(opts.year, opts.month, opts.day)
